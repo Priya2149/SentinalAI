@@ -1,0 +1,65 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooler in prod (or direct in dev)
+  directUrl = env("DIRECT_URL") // used automatically for migrate/seed
+}
+
+model User {
+  id        String      @id @default(cuid())
+  email     String      @unique
+  name      String?
+  createdAt DateTime    @default(now())
+  calls     ModelCall[]
+}
+
+model ModelCall {
+  id           String       @id @default(cuid())
+  userId       String?
+  user         User?        @relation(fields: [userId], references: [id])
+  ts           DateTime     @default(now())
+  provider     String
+  model        String
+  prompt       String
+  response     String
+  latencyMs    Int
+  promptTokens Int
+  respTokens   Int
+  status       CallStatus   @default(SUCCESS)
+  // Derived/estimates
+  costUsd      Decimal      @default(0) @db.Decimal(10, 6)
+  // Flags
+  hallucinated Boolean      @default(false)
+  toxic        Boolean      @default(false)
+  // Metadata
+  route        String? // which app route used it
+  ip           String?
+  error        String?
+  evals        EvalResult[]
+}
+
+model EvalResult {
+  id        String    @id @default(cuid())
+  callId    String
+  call      ModelCall @relation(fields: [callId], references: [id])
+  kind      EvalKind
+  passed    Boolean
+  score     Float?
+  details   String?
+  createdAt DateTime  @default(now())
+}
+
+enum CallStatus {
+  SUCCESS
+  FAIL
+  FLAGGED
+}
+
+enum EvalKind {
+  HALLUCINATION
+  TOXICITY
+}
