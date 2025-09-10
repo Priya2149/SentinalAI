@@ -1,9 +1,7 @@
 #AI Governance Dashboard
 
 > **Modern full-stack monitoring tool for Large Language Models (LLMs).**  
-> Built to showcase **AI observability, governance, and compliance readiness** — skills Big Tech and SaaS companies are hiring for in 2025.
-
----
+> Built to showcase **AI observability, governance, and compliance readiness**
 
 ## Overview
 
@@ -43,7 +41,7 @@ Next.js 15 · Tailwind 4.0 · ShadCN UI · TypeScript · FastAPI (Python 3.12) �
   - EU AI Act risk label (static for demo)
 
 ### 5. Modern Dashboard UI
-- Built with **Next.js 15 + ShadCN UI + Tailwind 4.0**
+- Built with **Next.js 15 + Tailwind 4.0**
 - Dark mode + responsive charts
 - Pages: **Logs | Metrics | Reports**
 
