@@ -8,10 +8,10 @@
 This project is a **production-style AI governance dashboard** that tracks, evaluates, and reports on LLM activity.  
 It solves the problems enterprises face when deploying AI at scale:
 
-- **Hallucinations & unsafe outputs** → flagged in real-time  
-- **Uncontrolled costs** → token usage & spend tracked per user  
-- **No visibility** → latency, errors, and performance metrics charted  
-- **Compliance pressure** → one-click downloadable reports
+- **Hallucinations & unsafe outputs**
+- **Uncontrolled costs** 
+- **No visibility** 
+- **Compliance pressure**
 
 **Built with a 2025-ready stack:**  
 Next.js 15 · Tailwind 4.0 · ShadCN UI · TypeScript · FastAPI (Python 3.12) · PostgreSQL/Supabase · Docker · Vercel · Render
