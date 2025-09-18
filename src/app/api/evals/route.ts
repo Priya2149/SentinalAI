@@ -4,7 +4,7 @@ import { hallucinationScore } from "@/lib/evals";
 import { isToxic } from "@/lib/toxicity";
 
 export async function POST() {
-  const calls = await prisma.modelCall.findMany({ orderBy: { ts: "desc" }, take: 200 });
+  const calls = await prisma.modelCall.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
   for (const c of calls) {
     // hallucination
     const h = hallucinationScore(c.prompt, c.response);

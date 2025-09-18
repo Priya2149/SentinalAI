@@ -1,23 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { LogCreate } from "@/lib/zod";
-import { estimateCostUsd } from "@/lib/cost";
 
-export async function GET() {
-  const logs = await prisma.modelCall.findMany({ orderBy: { ts: "desc" }, take: 200 });
-  return NextResponse.json({ logs });
-}
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const take = Math.min(parseInt(searchParams.get("take") ?? "50", 10), 200);
+  const skip = parseInt(searchParams.get("skip") ?? "0", 10);
 
-export async function POST(req: NextRequest) {
-  const json = await req.json();
-  const parsed = LogCreate.safeParse(json);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-
-  const { promptTokens, respTokens } = parsed.data;
-  const costUsd = estimateCostUsd(promptTokens, respTokens);
-
-  const created = await prisma.modelCall.create({
-    data: { ...parsed.data, costUsd }
+  const rows = await prisma.modelCall.findMany({
+    skip, take,
+    orderBy: { createdAt: "desc" },
+    include: { user: true },
   });
-  return NextResponse.json({ id: created.id }, { status: 201 });
+
+  return NextResponse.json(rows);
 }
