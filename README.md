@@ -1,19 +1,17 @@
 #AI Governance Dashboard
 
 > **Modern full-stack monitoring tool for Large Language Models (LLMs).**  
-> Built to showcase **AI observability, governance, and compliance readiness** — skills Big Tech and SaaS companies are hiring for in 2025.
-
----
+> Built to showcase **AI observability, governance, and compliance readiness**
 
 ## Overview
 
 This project is a **production-style AI governance dashboard** that tracks, evaluates, and reports on LLM activity.  
 It solves the problems enterprises face when deploying AI at scale:
 
-- **Hallucinations & unsafe outputs** → flagged in real-time  
-- **Uncontrolled costs** → token usage & spend tracked per user  
-- **No visibility** → latency, errors, and performance metrics charted  
-- **Compliance pressure** → one-click downloadable reports
+- **Hallucinations & unsafe outputs**
+- **Uncontrolled costs** 
+- **No visibility** 
+- **Compliance pressure**
 
 **Built with a 2025-ready stack:**  
 Next.js 15 · Tailwind 4.0 · ShadCN UI · TypeScript · FastAPI (Python 3.12) · PostgreSQL/Supabase · Docker · Vercel · Render
@@ -43,7 +41,7 @@ Next.js 15 · Tailwind 4.0 · ShadCN UI · TypeScript · FastAPI (Python 3.12) �
   - EU AI Act risk label (static for demo)
 
 ### 5. Modern Dashboard UI
-- Built with **Next.js 15 + ShadCN UI + Tailwind 4.0**
+- Built with **Next.js 15 + Tailwind 4.0**
 - Dark mode + responsive charts
 - Pages: **Logs | Metrics | Reports**
 
