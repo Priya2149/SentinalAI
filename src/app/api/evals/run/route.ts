@@ -1,67 +1,108 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { isToxic } from "@/lib/toxicity";
-import { isPromptInjection } from "@/lib/injection";
-import { hasPII } from "@/lib/pii";
-import { groundedCheck } from "@/lib/grounded";
+import OpenAI from "openai";
+import { z } from "zod";
+// import { runEvaluations } from "@/lib/evaluations"; // if you have this
 
-export async function POST() {
-  const calls = await prisma.modelCall.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 500,
-    select: { id:true, prompt:true, response:true, status:true },
-  });
-
-  let evaluated = 0;
-
-  for (const c of calls) {
-    // 1) Prompt Injection (on prompt)
-    const inj = isPromptInjection(c.prompt ?? "");
-    await prisma.evalResult.upsert({
-      where: { callId_kind: { callId: c.id, kind: "INJECTION" } },
-      update: { passed: !inj.matched, score: inj.matched ? 0 : 1, details: inj.matched ? "pattern:"+inj.pattern : "ok" },
-      create: { callId: c.id, kind: "INJECTION", passed: !inj.matched, score: inj.matched ? 0 : 1, details: inj.matched ? "pattern:"+inj.pattern : "ok" },
-    });
-    if (inj.matched && c.status === "SUCCESS") {
-      await prisma.modelCall.update({ where: { id: c.id }, data: { status: "FLAGGED" } });
-    }
-
-    // 2) PII / Secrets (on response)
-    const pii = hasPII(c.response ?? "");
-    const piiFail = pii.pii || pii.secret;
-    await prisma.evalResult.upsert({
-      where: { callId_kind: { callId: c.id, kind: "PII" } },
-      update: { passed: !piiFail, score: piiFail ? 0 : 1, details: pii.hits.join(",") || "ok" },
-      create: { callId: c.id, kind: "PII", passed: !piiFail, score: piiFail ? 0 : 1, details: pii.hits.join(",") || "ok" },
-    });
-    if (piiFail && c.status === "SUCCESS") {
-      await prisma.modelCall.update({ where: { id: c.id }, data: { status: "FLAGGED" } });
-    }
-
-    // 3) Toxicity (on response)
-    const tox = isToxic(c.response ?? "");
-    await prisma.evalResult.upsert({
-      where: { callId_kind: { callId: c.id, kind: "TOXICITY" } },
-      update: { passed: !tox, score: tox ? 0 : 1, details: "lexicon" },
-      create: { callId: c.id, kind: "TOXICITY", passed: !tox, score: tox ? 0 : 1, details: "lexicon" },
-    });
-    if (tox && c.status === "SUCCESS") {
-      await prisma.modelCall.update({ where: { id: c.id }, data: { status: "FLAGGED" } });
-    }
-
-    // 4) Grounded factuality (on response)
-    const g = await groundedCheck(c.response ?? "");
-    await prisma.evalResult.upsert({
-      where: { callId_kind: { callId: c.id, kind: "GROUNDING" } },
-      update: { passed: g.supported, score: g.supported ? 1 : 0, details: g.evidence.map(e => e.id).join(",") },
-      create: { callId: c.id, kind: "GROUNDING", passed: g.supported, score: g.supported ? 1 : 0, details: g.evidence.map(e => e.id).join(",") },
-    });
-    if (!g.supported && c.status === "SUCCESS") {
-      await prisma.modelCall.update({ where: { id: c.id }, data: { status: "FLAGGED" } });
-    }
-
-    evaluated++;
+// --- Helpers ---
+function requiredEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) {
+    throw new Error(`Missing required env var: ${name}`);
   }
+  return v;
+}
 
-  return NextResponse.json({ ok: true, evaluated });
+const openai = new OpenAI({
+  apiKey: requiredEnv("OPENAI_API_KEY"),
+});
+
+// Strict schema for the request body
+const BodySchema = z.object({
+  userId: z.string().min(1).default("anonymous"),
+  model: z.string().min(1).default("gpt-4o-mini"),
+  prompt: z.string().default(""),
+});
+
+type Body = z.infer<typeof BodySchema>;
+
+// Example: POST /api/chat with body { userId, model, prompt }
+export async function POST(req: Request) {
+  try {
+    // Parse JSON safely → unknown → validate with Zod (no `any`)
+    const raw: unknown = await req.json();
+    const parsed = BodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Invalid request body",
+          issues: parsed.error.issues,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { userId, model: modelUsed, prompt }: Body = parsed.data;
+
+    // --- Call your model here ---
+    const start = Date.now();
+    const chatResponse = await openai.chat.completions.create({
+      model: modelUsed,
+      messages: [
+        { role: "system", content: "You are a helpful assistant." },
+        { role: "user", content: prompt },
+      ],
+    });
+    const latencyMs = Date.now() - start;
+
+    const responseText: string = chatResponse.choices[0]?.message?.content ?? "";
+    const promptTokens: number = chatResponse.usage?.prompt_tokens ?? 0;
+    const respTokens: number = chatResponse.usage?.completion_tokens ?? 0;
+    const totalTokens: number = chatResponse.usage?.total_tokens ?? (promptTokens + respTokens);
+
+    // Example cost calculation (adjust to your model pricing)
+    const costUsd: number =
+      (promptTokens / 1000) * 0.0005 + (respTokens / 1000) * 0.0015;
+
+    // Save to DB with explicit mappings
+    const row = await prisma.modelCall.create({
+      data: {
+        userId: userId,
+        model: modelUsed,
+        prompt: prompt,
+        response: responseText,
+        latencyMs: latencyMs,
+        promptTokens: promptTokens,
+        respTokens: respTokens,
+        costUsd: costUsd,
+        status: "SUCCESS",
+      },
+    });
+
+    // Optionally kick off async evals
+    // void runEvaluations(row.id, prompt, responseText);
+
+    return NextResponse.json({
+      ok: true,
+      call: row,
+      response: responseText,
+      tokens: {
+        prompt: promptTokens,
+        response: respTokens,
+        total: totalTokens,
+      },
+      costUsd,
+      latencyMs,
+    });
+  } catch (err: unknown) {
+    // Narrow unknown -> string message
+    const message =
+      err instanceof Error ? err.message : typeof err === "string" ? err : "Unknown error";
+
+    return NextResponse.json(
+      { ok: false, error: message },
+      { status: 500 }
+    );
+  }
 }
