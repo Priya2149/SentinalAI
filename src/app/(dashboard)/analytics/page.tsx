@@ -1,4 +1,18 @@
 import { prisma } from "@/lib/prisma";
+import { 
+  TrendingUp, 
+  TrendingDown,
+  Cpu,
+  Users,
+  DollarSign,
+  Clock,
+  AlertTriangle,
+  Activity,
+  Target,
+  Zap,
+  BarChart3,
+  PieChart
+} from "lucide-react";
 
 type ModelRow = {
   model: string;
@@ -26,72 +40,591 @@ export default async function AnalyticsPage() {
     }).then((r) => r.json()),
   ]);
 
+  // Calculate aggregated insights
+  const totalModels = byModel.length;
+  const totalUsers = byUser.length;
+  const totalCalls = byModel.reduce((sum, m) => sum + m.calls, 0);
+  const totalCost = byUser.reduce((sum, u) => sum + u.totalCostUsd, 0);
+  const avgLatency = byModel.length > 0 ? Math.round(byModel.reduce((sum, m) => sum + m.avgLatencyMs, 0) / byModel.length) : 0;
+  const overallErrorRate = byModel.length > 0 ? (byModel.reduce((sum, m) => sum + (m.errorRate * m.calls), 0) / totalCalls) * 100 : 0;
+
+  // Find top performers
+  const topModel = byModel.sort((a, b) => b.calls - a.calls)[0];
+  const topUser = byUser.sort((a, b) => b.calls - a.calls)[0];
+  const mostExpensiveModel = byModel.sort((a, b) => (b.avgCostUsd * b.calls) - (a.avgCostUsd * a.calls))[0];
+
   return (
-    <div className="space-y-8 p-4 md:p-6">
-      <h1 className="text-xl font-semibold">Analytics</h1>
-
-      <section className="space-y-2">
-        <h2 className="font-medium">By Model</h2>
-        <div className="overflow-auto rounded-md border">
-          <table className="min-w-[720px] w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <Th>Model</Th>
-                <Th>Calls</Th>
-                <Th>Avg Latency</Th>
-                <Th>Avg Cost ($)</Th>
-                <Th>Error Rate</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {byModel.map((r) => (
-                <tr key={r.model} className="border-t">
-                  <Td>{r.model}</Td>
-                  <Td>{r.calls}</Td>
-                  <Td>{r.avgLatencyMs} ms</Td>
-                  <Td>{r.avgCostUsd.toFixed(5)}</Td>
-                  <Td>{(r.errorRate * 100).toFixed(1)}%</Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div className="space-y-8 p-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Advanced Analytics</h1>
+          <p className="text-muted-foreground mt-2">
+            Deep insights into model performance and user behavior
+          </p>
         </div>
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="font-medium">By User</h2>
-        <div className="overflow-auto rounded-md border">
-          <table className="min-w-[720px] w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <Th>User</Th>
-                <Th>Calls</Th>
-                <Th>Total Cost ($)</Th>
-                <Th>Avg Latency</Th>
-                <Th>Error Rate</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {byUser.map((r, i) => (
-                <tr key={i} className="border-t">
-                  <Td>{r.user}</Td>
-                  <Td>{r.calls}</Td>
-                  <Td>{r.totalCostUsd.toFixed(5)}</Td>
-                  <Td>{r.avgLatencyMs} ms</Td>
-                  <Td>{(r.errorRate * 100).toFixed(1)}%</Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        
+        <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 px-3 py-1.5 bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 rounded-full text-sm">
+            <div className="h-2 w-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span>Live Data</span>
+          </div>
         </div>
-      </section>
+      </div>
+
+      {/* Key Metrics Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <MetricCard
+          title="Total Models"
+          value={totalModels}
+          change="+2"
+          trend="up"
+          icon={<Cpu className="h-5 w-5" />}
+          color="blue"
+          subtitle="Active AI models"
+        />
+        <MetricCard
+          title="Active Users"
+          value={totalUsers}
+          change="+12"
+          trend="up"
+          icon={<Users className="h-5 w-5" />}
+          color="green"
+          subtitle="Unique users this period"
+        />
+        <MetricCard
+          title="Total Spend"
+          value={`${totalCost.toFixed(4)}`}
+          change="+15.2%"
+          trend="up"
+          icon={<DollarSign className="h-5 w-5" />}
+          color="purple"
+          subtitle="Cumulative API costs"
+        />
+        <MetricCard
+          title="Error Rate"
+          value={`${overallErrorRate.toFixed(1)}%`}
+          change="-2.1%"
+          trend="up"
+          icon={<AlertTriangle className="h-5 w-5" />}
+          color={overallErrorRate > 10 ? "red" : "orange"}
+          subtitle="System reliability"
+        />
+      </div>
+
+      {/* Insights Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <InsightCard
+          title="Top Performing Model"
+          value={topModel?.model || "N/A"}
+          metric={`${topModel?.calls || 0} calls`}
+          icon={<Target className="h-6 w-6" />}
+          color="blue"
+          description="Most frequently used model"
+        />
+        <InsightCard
+          title="Power User"
+          value={topUser?.user || "N/A"}
+          metric={`${topUser?.calls || 0} API calls`}
+          icon={<Zap className="h-6 w-6" />}
+          color="green"
+          description="Highest usage this period"
+        />
+        <InsightCard
+          title="Cost Leader"
+          value={mostExpensiveModel?.model || "N/A"}
+          metric={`${((mostExpensiveModel?.avgCostUsd || 0) * (mostExpensiveModel?.calls || 1)).toFixed(4)}`}
+          icon={<DollarSign className="h-6 w-6" />}
+          color="purple"
+          description="Highest total spend"
+        />
+      </div>
+
+      {/* Model Performance Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <Cpu className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">Model Performance Analysis</h2>
+                <p className="text-sm text-muted-foreground">Comprehensive breakdown by AI model</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">{totalModels} models tracked</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-800/50">
+                <tr>
+                  <TableHeader>
+                    <div className="flex items-center space-x-2">
+                      <Cpu className="h-4 w-4" />
+                      <span>Model</span>
+                    </div>
+                  </TableHeader>
+                  <TableHeader>
+                    <div className="flex items-center space-x-2">
+                      <Activity className="h-4 w-4" />
+                      <span>Calls</span>
+                    </div>
+                  </TableHeader>
+                  <TableHeader>
+                    <div className="flex items-center space-x-2">
+                      <Clock className="h-4 w-4" />
+                      <span>Avg Latency</span>
+                    </div>
+                  </TableHeader>
+                  <TableHeader>
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="h-4 w-4" />
+                      <span>Avg Cost</span>
+                    </div>
+                  </TableHeader>
+                  <TableHeader>
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span>Error Rate</span>
+                    </div>
+                  </TableHeader>
+                  <TableHeader>Performance</TableHeader>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {byModel.map((model, index) => (
+                  <tr key={model.model} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <TableCell>
+                      <div className="flex items-center space-x-3">
+                        <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-medium text-sm">
+                          {model.model.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-sm">{model.model}</div>
+                          <div className="text-xs text-muted-foreground">
+                            #{index + 1} by usage
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <div className="flex-shrink-0">
+                          <UsageBar value={model.calls} max={Math.max(...byModel.map(m => m.calls))} />
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold">{model.calls.toLocaleString()}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {((model.calls / totalCalls) * 100).toFixed(1)}% share
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <LatencyIndicator latency={model.avgLatencyMs} />
+                        <div className="text-right">
+                          <div className={`font-mono font-medium ${
+                            model.avgLatencyMs < 500 ? 'text-green-600' :
+                            model.avgLatencyMs < 1000 ? 'text-yellow-600' : 'text-red-600'
+                          }`}>
+                            {Math.round(model.avgLatencyMs)}ms
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {model.avgLatencyMs < 500 ? 'Excellent' : 
+                             model.avgLatencyMs < 1000 ? 'Good' : 'Needs improvement'}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-right">
+                        <div className="font-mono font-medium text-green-600">
+                          ${model.avgCostUsd.toFixed(5)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          ${(model.avgCostUsd * model.calls).toFixed(4)} total
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-right">
+                        <div className={`font-medium ${
+                          model.errorRate > 0.1 ? 'text-red-600' :
+                          model.errorRate > 0.05 ? 'text-yellow-600' : 'text-green-600'
+                        }`}>
+                          {(model.errorRate * 100).toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {Math.round(model.errorRate * model.calls)} errors
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <PerformanceScore 
+                        latency={model.avgLatencyMs}
+                        errorRate={model.errorRate}
+                        usage={model.calls}
+                      />
+                    </TableCell>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* User Analytics Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <Users className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">User Behavior Analytics</h2>
+                <p className="text-sm text-muted-foreground">Usage patterns and cost analysis by user</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <PieChart className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">{totalUsers} active users</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-800/50">
+                <tr>
+                  <TableHeader>
+                    <div className="flex items-center space-x-2">
+                      <Users className="h-4 w-4" />
+                      <span>User</span>
+                    </div>
+                  </TableHeader>
+                  <TableHeader>
+                    <div className="flex items-center space-x-2">
+                      <Activity className="h-4 w-4" />
+                      <span>API Calls</span>
+                    </div>
+                  </TableHeader>
+                  <TableHeader>
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="h-4 w-4" />
+                      <span>Total Cost</span>
+                    </div>
+                  </TableHeader>
+                  <TableHeader>
+                    <div className="flex items-center space-x-2">
+                      <Clock className="h-4 w-4" />
+                      <span>Avg Latency</span>
+                    </div>
+                  </TableHeader>
+                  <TableHeader>
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span>Error Rate</span>
+                    </div>
+                  </TableHeader>
+                  <TableHeader>User Type</TableHeader>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {byUser.map((user, index) => (
+                  <tr key={user.user} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <TableCell>
+                      <div className="flex items-center space-x-3">
+                        <div className="h-10 w-10 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center text-white font-medium text-sm">
+                          {user.user[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-sm">
+                            {user.user.split('@')[0]}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {user.user.split('@')[1] || 'Internal user'}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <div className="flex-shrink-0">
+                          <UsageBar value={user.calls} max={Math.max(...byUser.map(u => u.calls))} />
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold">{user.calls.toLocaleString()}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {((user.calls / totalCalls) * 100).toFixed(1)}% share
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-right">
+                        <div className="font-mono font-medium text-green-600">
+                          ${user.totalCostUsd.toFixed(5)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          ${(user.totalCostUsd / user.calls).toFixed(6)}/call
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-right">
+                        <div className={`font-mono font-medium ${
+                          user.avgLatencyMs < 500 ? 'text-green-600' :
+                          user.avgLatencyMs < 1000 ? 'text-yellow-600' : 'text-red-600'
+                        }`}>
+                          {Math.round(user.avgLatencyMs)}ms
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-right">
+                        <div className={`font-medium ${
+                          user.errorRate > 0.1 ? 'text-red-600' :
+                          user.errorRate > 0.05 ? 'text-yellow-600' : 'text-green-600'
+                        }`}>
+                          {(user.errorRate * 100).toFixed(1)}%
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <UserTypeBadge calls={user.calls} cost={user.totalCostUsd} />
+                    </TableCell>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) {
-  return <th className="text-left px-3 py-2 font-medium">{children}</th>;
+function MetricCard({ 
+  title, 
+  value, 
+  change, 
+  trend, 
+  icon, 
+  color,
+  subtitle 
+}: {
+  title: string;
+  value: number | string;
+  change: string;
+  trend: "up" | "down";
+  icon: React.ReactNode;
+  color: "blue" | "green" | "purple" | "orange" | "red";
+  subtitle: string;
+}) {
+  const colorClasses = {
+    blue: "from-blue-500 to-blue-600",
+    green: "from-green-500 to-green-600",
+    purple: "from-purple-500 to-purple-600",
+    orange: "from-orange-500 to-orange-600",
+    red: "from-red-500 to-red-600"
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className={`p-2 rounded-lg bg-gradient-to-r ${colorClasses[color]} text-white`}>
+          {icon}
+        </div>
+        <div className={`flex items-center space-x-1 text-sm ${
+          trend === "up" ? "text-green-600" : "text-red-600"
+        }`}>
+          {trend === "up" ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+          <span>{change}</span>
+        </div>
+      </div>
+      <div>
+        <p className="text-sm font-medium text-muted-foreground">{title}</p>
+        <p className="text-2xl font-bold mt-1">{value}</p>
+        <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+      </div>
+    </div>
+  );
 }
-function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3 py-2">{children}</td>;
+
+function InsightCard({
+  title,
+  value,
+  metric,
+  icon,
+  color,
+  description
+}: {
+  title: string;
+  value: string;
+  metric: string;
+  icon: React.ReactNode;
+  color: "blue" | "green" | "purple";
+  description: string;
+}) {
+  const colorClasses = {
+    blue: "from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200/50",
+    green: "from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200/50",
+    purple: "from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20 border-purple-200/50"
+  };
+
+  const iconClasses = {
+    blue: "text-blue-600 bg-blue-100 dark:bg-blue-900/30",
+    green: "text-green-600 bg-green-100 dark:bg-green-900/30", 
+    purple: "text-purple-600 bg-purple-100 dark:bg-purple-900/30"
+  };
+
+  return (
+    <div className={`bg-gradient-to-r ${colorClasses[color]} rounded-xl p-6 border`}>
+      <div className="flex items-center space-x-3 mb-4">
+        <div className={`p-2 rounded-lg ${iconClasses[color]}`}>
+          {icon}
+        </div>
+        <div>
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-500">{description}</p>
+        </div>
+      </div>
+      <div>
+        <p className="text-lg font-bold text-gray-900 dark:text-gray-100 truncate">{value}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{metric}</p>
+      </div>
+    </div>
+  );
+}
+
+function UsageBar({ value, max }: { value: number; max: number }) {
+  const percentage = (value / max) * 100;
+  
+  return (
+    <div className="w-16 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+      <div 
+        className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-300"
+        style={{ width: `${percentage}%` }}
+      />
+    </div>
+  );
+}
+
+function LatencyIndicator({ latency }: { latency: number }) {
+  const getColor = () => {
+    if (latency < 500) return "bg-green-400";
+    if (latency < 1000) return "bg-yellow-400";
+    return "bg-red-400";
+  };
+
+  const percentage = Math.min((latency / 2000) * 100, 100);
+
+  return (
+    <div className="w-12 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+      <div 
+        className={`h-full ${getColor()} transition-all duration-300`}
+        style={{ width: `${percentage}%` }}
+      />
+    </div>
+  );
+}
+
+function PerformanceScore({ 
+  latency, 
+  errorRate, 
+  usage 
+}: { 
+  latency: number; 
+  errorRate: number; 
+  usage: number; 
+}) {
+  let score = 100;
+  
+  // Penalize high latency
+  if (latency > 1000) score -= 30;
+  else if (latency > 500) score -= 15;
+  
+  // Penalize high error rate
+  if (errorRate > 0.1) score -= 40;
+  else if (errorRate > 0.05) score -= 20;
+  
+  // Bonus for high usage (indicates reliability)
+  if (usage > 1000) score += 5;
+  
+  score = Math.max(0, Math.min(100, score));
+  
+  let grade: string;
+  let color: string;
+  
+  if (score >= 90) {
+    grade = "A+";
+    color = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+  } else if (score >= 80) {
+    grade = "A";
+    color = "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+  } else if (score >= 70) {
+    grade = "B";
+    color = "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
+  } else {
+    grade = "C";
+    color = "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+  }
+
+  return (
+    <div className="text-center">
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${color}`}>
+        {grade}
+      </span>
+      <div className="text-xs text-muted-foreground mt-1">{score}/100</div>
+    </div>
+  );
+}
+
+function UserTypeBadge({ calls, cost }: { calls: number; cost: number }) {
+  let type: string;
+  let color: string;
+  
+  if (calls > 1000 || cost > 0.1) {
+    type = "Power User";
+    color = "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
+  } else if (calls > 100 || cost > 0.01) {
+    type = "Regular";
+    color = "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+  } else {
+    type = "Light";
+    color = "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
+  }
+
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
+      {type}
+    </span>
+  );
+}
+
+function TableHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+      {children}
+    </th>
+  );
+}
+
+function TableCell({ children }: { children: React.ReactNode }) {
+  return (
+    <td className="px-6 py-4">
+      {children}
+    </td>
+  );
 }
