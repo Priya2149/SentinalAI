@@ -2,8 +2,9 @@ import "@/app/globals.css";
 import type { Metadata } from "next";
 import { ReactNode } from "react";
 import { Providers } from "@/components/Providers";
-import { Sidebar } from "@/components/sidebar";
+
 import { Topbar } from "@/components/topbar";
+import Sidebar from "@/components/sidebar";
 
 export const metadata: Metadata = {
   title: { default: process.env.NEXT_PUBLIC_APP_NAME ?? "SentinelAI", template: "%s • SentinelAI" },
