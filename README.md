@@ -14,8 +14,7 @@ It solves the problems enterprises face when deploying AI at scale:
 - **Compliance pressure**
 
 **Built with a 2025-ready stack:**  
-Next.js 15 · Tailwind 4.0 · ShadCN UI · TypeScript · FastAPI (Python 3.12) · PostgreSQL/Supabase · Docker · Vercel · Render
-
+Next.js 15 · Tailwind 4.0 · ShadCN UI · TypeScript · PostgreSQL/Supabase
 ---
 
 ## Core Features
@@ -50,16 +49,12 @@ Next.js 15 · Tailwind 4.0 · ShadCN UI · TypeScript · FastAPI (Python 3.12) �
 ## Tech Stack
 
 **Frontend:**  
-- Next.js 15, TypeScript, Tailwind 4.0, ShadCN UI  
+- Next.js 15, TypeScript, Tailwind 
 - Chart.js / Recharts for graphs  
 
 **Backend:**  
-- FastAPI (Python 3.12) or Bun + Express  
-- SQLite (local) or Supabase PostgreSQL (free tier)  
-
-**Infra & DevOps:**  
-- Docker + GitHub Actions (CI/CD)  
-- Deployment: Vercel (frontend), Render (backend)  
+- Next.js  
+- SQLite (local) or Supabase PostgreSQL (free tier) 
 
 **AI / Eval Tools:**  
 - Free HuggingFace moderation model  
