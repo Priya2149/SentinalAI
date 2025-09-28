@@ -32,10 +32,10 @@ type UserRow = {
 
 export default async function AnalyticsPage() {
   const [byModel, byUser]: [ModelRow[], UserRow[]] = await Promise.all([
-    fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/analytics/models`, {
+    fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/api/analytics/models`, {
       cache: "no-store",
     }).then((r) => r.json()),
-    fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/analytics/users`, {
+    fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/api/analytics/users`, {
       cache: "no-store",
     }).then((r) => r.json()),
   ]);

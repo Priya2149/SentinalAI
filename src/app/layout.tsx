@@ -1,12 +1,10 @@
-// app/layout.tsx (your existing file, edited)
 import "@/app/globals.css";
 import type { Metadata } from "next";
-import { ReactNode, Suspense } from "react";
+import { ReactNode } from "react";
 import { Providers } from "@/components/Providers";
+
 import { Topbar } from "@/components/topbar";
 import Sidebar from "@/components/sidebar";
-import TabbedContent from "@/components/TabbedContent";
-import OverviewContent from "@/components/OverviewContent";
 
 export const metadata: Metadata = {
   title: { 
@@ -46,18 +44,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <div className="relative z-10 h-full overflow-auto">
                   <div className="min-h-full p-4 md:p-6 lg:p-8">
                     <div className="mx-auto max-w-7xl">
-                      {/* 👉 Swap in Overview content when the "overview" tab/segment is active */}
-                      <TabbedContent
-                        overview={
-                          // Async server component is fine in Suspense
-                          <Suspense fallback={<div className="p-4">Loading overview…</div>}>
-                            {/* @ts-expect-error Async Server Component */}
-                            <OverviewContent />
-                          </Suspense>
-                        }
-                      >
-                        {children}
-                      </TabbedContent>
+                      {children}
                     </div>
                   </div>
                 </div>
