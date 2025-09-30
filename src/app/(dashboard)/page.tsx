@@ -27,13 +27,35 @@ function asStatus(s: unknown): Status {
   return STATUS_VALUES.includes(String(s) as Status) ? (s as Status) : "FLAGGED";
 }
 
-export default async function Page() {
+/** ----- time range handling ----- */
+const RANGE_MS: Record<string, number> = {
+  "24h": 24 * 60 * 60 * 1000,
+  "3d": 3 * 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
+};
+type RangeKey = keyof typeof RANGE_MS;
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams?: { range?: string; ts?: string };
+}) {
+  const rangeParam = (searchParams?.range as RangeKey) || "24h";
+  const range: RangeKey = rangeParam in RANGE_MS ? (rangeParam as RangeKey) : "24h";
+  const since = new Date(Date.now() - RANGE_MS[range]);
+
+  // Query within selected range
   const [counts, latest] = await Promise.all([
-    prisma.modelCall.groupBy({ by: ["status"], _count: { status: true } }),
+    prisma.modelCall.groupBy({
+      by: ["status"],
+      _count: { status: true },
+      where: { createdAt: { gte: since } },
+    }),
     prisma.modelCall.findMany({
       take: 10,
       orderBy: { createdAt: "desc" },
       include: { user: true },
+      where: { createdAt: { gte: since } },
     }),
   ]);
 
@@ -42,33 +64,37 @@ export default async function Page() {
   const fail = counts.find((c) => c.status === "FAIL")?._count.status ?? 0;
   const flagged = counts.find((c) => c.status === "FLAGGED")?._count.status ?? 0;
 
-  // simple cache-busting href for the refresh link
-  const refreshHref = `?ts=${Date.now()}`;
+  // keep the same range when refreshing
+  const refreshHref = `?range=${range}&ts=${Date.now()}`;
 
   return (
     <div className="p-0 sm:p-6 relative isolate min-h-full">
-      {/* ===== HERO ===== */}
+      {/* ===== HERO (badge + description + functional filters) ===== */}
       <div className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white">
         <div className="absolute inset-0 opacity-30 mix-blend-overlay pointer-events-none [background:radial-gradient(60%_50%_at_10%_10%,white,transparent_60%),radial-gradient(40%_40%_at_90%_20%,white,transparent_60%)]" />
         <div className="relative px-6 py-8 sm:px-8 sm:py-10 flex items-center justify-between">
           <div>
+            {/* badge above title */}
             <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
               <Sparkles className="h-3.5 w-3.5" />
               Live analytics
             </div>
+
             <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight">
               Overview
             </h1>
+
+            {/* short description from your project doc */}
             <p className="mt-1 text-sm sm:text-base text-white/85">
-              At-a-glance metrics for model calls and recent activity
+              Logs every LLM call, tracks token cost &amp; latency, and runs lightweight evals for hallucinations and security.
             </p>
           </div>
 
-          {/* Toolbar (no event handlers in Server Component) */}
+          {/* Toolbar (links so it works in a Server Component) */}
           <div className="hidden sm:flex items-center gap-2">
-            <ToolbarChip icon={<CalendarDays className="h-4 w-4" />} label="Last 24h" active />
-            <ToolbarChip icon={<CalendarDays className="h-4 w-4" />} label="7d" />
-            <ToolbarChip icon={<CalendarDays className="h-4 w-4" />} label="30d" />
+            <ToolbarChip href={`?range=24h`} icon={<CalendarDays className="h-4 w-4" />} label="24h" active={range === "24h"} />
+            <ToolbarChip href={`?range=3d`} icon={<CalendarDays className="h-4 w-4" />} label="3d" active={range === "3d"} />
+            <ToolbarChip href={`?range=7d`} icon={<CalendarDays className="h-4 w-4" />} label="7d" active={range === "7d"} />
             <Link
               href={refreshHref}
               className="ml-2 inline-flex items-center gap-2 rounded-lg bg-white/15 hover:bg-white/25 transition px-3 py-2 backdrop-blur"
@@ -123,7 +149,7 @@ export default async function Page() {
               <h2 className="text-base font-semibold">Latest Calls</h2>
             </div>
             <span className="text-sm text-muted-foreground">
-              Showing {latest.length} most recent
+              Showing {latest.length} most recent (last {range})
             </span>
           </header>
           <div className="overflow-x-auto">
@@ -220,7 +246,7 @@ export default async function Page() {
         <section className="space-y-6">
           <InsightCard
             title="Reliability"
-            description="Overall success vs failure share"
+            description="Success vs failure share"
             items={[
               { label: "Success", value: ok, tone: "green" },
               { label: "Failures", value: fail, tone: "red" },
@@ -247,25 +273,26 @@ export default async function Page() {
 /* ----------------- UI PIECES ----------------- */
 
 function ToolbarChip({
+  href,
   icon,
   label,
   active = false,
 }: {
+  href: string;
   icon: React.ReactNode;
   label: string;
   active?: boolean;
 }) {
   return (
-    <span
+    <Link
+      href={href}
       className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 backdrop-blur transition ${
-        active
-          ? "bg-white/20 text-white"
-          : "bg-white/10 text-white/80"
+        active ? "bg-white/20 text-white" : "bg-white/10 text-white/80 hover:bg-white/15"
       }`}
     >
       {icon}
       <span className="text-sm">{label}</span>
-    </span>
+    </Link>
   );
 }
 
